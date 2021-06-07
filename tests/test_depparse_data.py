@@ -58,5 +58,5 @@ def test_data_to_batches_eval_mode():
     check_batches(batched_data[0], [1, 4, 1], ['A', 'B', 'C'])
 
 if __name__ == '__main__':
-    test_data_to_batches()
+    test_data_to_batches_eval_mode()
 

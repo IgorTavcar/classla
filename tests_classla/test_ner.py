@@ -21,7 +21,7 @@ SL_DOC_GOLD = """
 5	rodil	_	_	_	_	_	_	_	NER=O
 6	v	_	_	_	_	_	_	_	NER=O
 7	Vrbi	_	_	_	_	_	_	_	NER=B-LOC|SpaceAfter=No
-8	.	_	_	_	_	_	_	_	NER=O
+8	.	_	PUNCT	Z	_	_	_	_	NER=O
 
 """.lstrip()
 
@@ -29,4 +29,11 @@ SL_DOC_GOLD = """
 def test_ner():
     nlp = classla.Pipeline(**{'processors': 'tokenize,ner', 'dir': TEST_MODELS_DIR, 'lang': 'sl'})
     doc = nlp(SL_DOC)
-    assert SL_DOC_GOLD == doc.to_conll()
+
+    gold = SL_DOC_GOLD.split('\n')
+    me = doc.to_conll().split('\n')
+
+    assert len(gold) == len(me)
+
+    for g, m in zip(gold, me):
+        assert g == m

@@ -206,8 +206,9 @@ def copy_file(src, dst):
 
 
 def get_md5(path):
-    data = open(path, 'rb').read()
-    return hashlib.md5(data).hexdigest()
+    with open(path, 'rb') as reader:
+        data = reader.read()
+        return hashlib.md5(data).hexdigest()
 
 
 def parse_args():

@@ -2,21 +2,20 @@
 Common utilities for Stanza resources.
 """
 
+import hashlib
+import json
+import logging
 import os
+import zipfile
+from pathlib import Path
+
 import requests
 from tqdm import tqdm
-from pathlib import Path
-import json
-import hashlib
-import zipfile
-import shutil
-import logging
 
-from classla.utils.helper_func import make_table
-from classla.pipeline._constants import TOKENIZE, MWT, POS, LEMMA, DEPPARSE, \
-    NER, SENTIMENT
-from classla.pipeline.registry import PIPELINE_NAMES, PROCESSOR_VARIANTS
 from classla._version import __resources_version__
+from classla.pipeline._constants import TOKENIZE, LEMMA, NER
+from classla.pipeline.registry import PIPELINE_NAMES, PROCESSOR_VARIANTS
+from classla.utils.helper_func import make_table
 
 logger = logging.getLogger('classla')
 
@@ -35,6 +34,7 @@ DEFAULT_MODEL_DIR = os.getenv(
     os.path.join(HOME_DIR, 'classla_resources')
 )
 
+
 # given a language and models path, build a default configuration
 def build_default_config(resources, lang, dir, load_list):
     default_config = {}
@@ -48,9 +48,11 @@ def build_default_config(resources, lang, dir, load_list):
         elif processor == LEMMA and package == 'identity':
             default_config[f"{LEMMA}_use_identity"] = True
         elif processor == TOKENIZE:
-            assert 'library' in resources[lang][processor][package], "Tokenizer processor in resources.json should include attribute `library` with value `reldi` or `obeliks`"
+            assert 'library' in resources[lang][processor][
+                package], "Tokenizer processor in resources.json should include attribute `library` with value `reldi` or `obeliks`"
             default_config[f"{processor}_library"] = resources[lang][processor][package]['library']
-            assert 'type' in resources[lang][processor][package], "Tokenizer processor in resources.json should include attribute `type` with value `standard` or `nonstandard`"
+            assert 'type' in resources[lang][processor][
+                package], "Tokenizer processor in resources.json should include attribute `type` with value `standard` or `nonstandard`"
             default_config[f"{processor}_type"] = resources[lang][processor][package]['type']
         else:
             if processor == NER:
@@ -70,18 +72,22 @@ def build_default_config(resources, lang, dir, load_list):
 
     return default_config
 
+
 def ensure_dir(dir):
     """
     Create dir in case it does not exist.
     """
     Path(dir).mkdir(parents=True, exist_ok=True)
 
+
 def get_md5(path):
     """
     Get the MD5 value of a path.
     """
-    data = open(path, 'rb').read()
-    return hashlib.md5(data).hexdigest()
+    with open(path, 'rb') as reader:
+        data = reader.read()
+        return hashlib.md5(data).hexdigest()
+
 
 def unzip_file(filename, zipped_filename):
     """
@@ -94,6 +100,7 @@ def unzip_file(filename, zipped_filename):
             with open(filename, 'wb') as wf:
                 wf.write(rf.read(file.filename))
 
+
 def unzip(dir, filename):
     """
     Fully unzip a file `filename` that's in a directory `dir`.
@@ -101,6 +108,7 @@ def unzip(dir, filename):
     logger.debug(f'Unzip: {dir}/{filename}...')
     with zipfile.ZipFile(os.path.join(dir, filename)) as f:
         f.extractall(dir)
+
 
 def get_root_from_zipfile(filename):
     """
@@ -114,6 +122,7 @@ def get_root_from_zipfile(filename):
         f"Zip file at f{filename} seems to be corrupted. Please check it."
     return os.path.dirname(zf.filelist[0].filename)
 
+
 def file_exists(path, md5):
     """
     Check if the file at `path` exists and match the provided md5 value.
@@ -121,6 +130,7 @@ def file_exists(path, md5):
     # if os.path.exists(path):
     #     print(f'PATH: {path} || Written md5: {md5} || Calculated md5: {get_md5(path)}')
     return os.path.exists(path) and get_md5(path) == md5
+
 
 def download_file(url, path):
     """
@@ -145,7 +155,7 @@ def download_file(url, path):
         default_chunk_size = 131072
         desc = 'Downloading ' + url
         with tqdm(total=file_size, unit='B', unit_scale=True, \
-            disable=not verbose, desc=desc) as pbar:
+                  disable=not verbose, desc=desc) as pbar:
             for chunk in r.iter_content(chunk_size=default_chunk_size):
                 if chunk:
                     f.write(chunk)
@@ -155,6 +165,7 @@ def download_file(url, path):
     if zipped:
         unzip_file(normal_path, path)
         os.remove(path)
+
 
 def request_file(url, path, md5=None):
     """
@@ -166,7 +177,8 @@ def request_file(url, path, md5=None):
         logger.info(f'File exists: {path}.')
         return
     download_file(url, path)
-    assert(not md5 or file_exists(path, md5))
+    assert (not md5 or file_exists(path, md5))
+
 
 def sort_processors(processor_list):
     sorted_list = []
@@ -176,14 +188,15 @@ def sort_processors(processor_list):
                 sorted_list.append(item)
     return sorted_list
 
+
 def maintain_processor_list(resources, lang, package, processors):
     processor_list = {}
     # resolve processor models
     if processors:
         logger.debug(f'Processing parameter "processors"...')
         for key, value in processors.items():
-            assert(key in PIPELINE_NAMES)
-            assert(isinstance(key, str) and isinstance(value, str))
+            assert (key in PIPELINE_NAMES)
+            assert (isinstance(key, str) and isinstance(value, str))
             # check if keys and values can be found
             if key in resources[lang] and value in resources[lang][key]:
                 logger.debug(f'Found {key}: {value}.')
@@ -254,6 +267,7 @@ def maintain_processor_list(resources, lang, package, processors):
     processor_list = sort_processors(processor_list)
     return processor_list
 
+
 def add_dependencies(resources, lang, processor_list):
     default_dependencies = resources[lang]['default_dependencies']
     for item in processor_list:
@@ -261,16 +275,17 @@ def add_dependencies(resources, lang, processor_list):
         dependencies = default_dependencies.get(processor, None)
         # skip dependency checking for external variants of processors and identity lemmatizer
         if not any([
-                package in PROCESSOR_VARIANTS[processor],
-                processor == LEMMA and package == 'identity'
-            ]):
+            package in PROCESSOR_VARIANTS[processor],
+            processor == LEMMA and package == 'identity'
+        ]):
             dependencies = resources[lang].get(processor, {}).get(package, {}) \
                 .get('dependencies', dependencies)
         if dependencies:
             dependencies = [[dependency['model'], dependency['package']] \
-                for dependency in dependencies]
+                            for dependency in dependencies]
         item.append(dependencies)
     return processor_list
+
 
 def flatten_processor_list(processor_list):
     flattened_processor_list = []
@@ -285,6 +300,7 @@ def flatten_processor_list(processor_list):
         logger.debug(f'Find dependency {processor}: {package}.')
     flattened_processor_list += dependencies_list
     return flattened_processor_list
+
 
 def set_logging_level(logging_level, verbose):
     # Check verbose for easy logging control
@@ -303,6 +319,7 @@ def set_logging_level(logging_level, verbose):
         )
     logger.setLevel(logging_level)
     return logging_level
+
 
 def process_pipeline_parameters(lang, dir, package, processors):
     # Check parameter types and convert values to lower case
@@ -334,13 +351,13 @@ def process_pipeline_parameters(lang, dir, package, processors):
         # Special case: processors is str, compatible with older verson
         processors = {
             processor.strip().lower(): package \
-                for processor in processors.split(',')
+            for processor in processors.split(',')
         }
         package = None
     elif isinstance(processors, dict):
         processors = {
             k.strip().lower(): v.strip().lower() \
-                for k, v in processors.items()
+            for k, v in processors.items()
         }
     elif processors is not None:
         raise Exception(
@@ -349,6 +366,7 @@ def process_pipeline_parameters(lang, dir, package, processors):
         )
 
     return lang, dir, package, processors
+
 
 # main download function
 def download(
@@ -362,7 +380,7 @@ def download(
         resources_branch=None,
         resources_version=DEFAULT_RESOURCES_VERSION,
         model_url=DEFAULT_MODEL_URL
-    ):
+):
     package = type
     # set global logging level
     set_logging_level(logging_level, verbose)
@@ -385,7 +403,8 @@ def download(
     )
     # unpack results
     try:
-        resources = json.load(open(os.path.join(dir, 'resources.json')))
+        with open(os.path.join(dir, 'resources.json')) as reader:
+            resources = json.load(reader)
     except:
         raise Exception(
             f'Cannot load resource file. Please check your network connection, '
